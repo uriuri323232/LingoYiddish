@@ -1,1 +1,30 @@
-
+name: Build Android APK
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - run: npm install
+      - run: npx expo prebuild --platform android --no-install
+      - name: Ensure splash color exists
+        run: |
+          f=android/app/src/main/res/values/colors.xml
+          mkdir -p "$(dirname $f)"
+          [ -f "$f" ] || printf '<resources>\n</resources>\n' > "$f"
+          grep -q splashscreen_background "$f" || sed -i 's|</resources>|  <color name="splashscreen_background">#1B2A41</color>\n</resources>|' "$f"
+      - run: chmod +x android/gradlew && cd android && ./gradlew assembleRelease
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yiddish-offline-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
