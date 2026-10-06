@@ -6,12 +6,16 @@ import RAW from './vocabulary.json';
 const DATA = RAW.map((w) => ({ ...w, id: w.y + '|' + w.h }));
 const FILE = FS.documentDirectory + 'progress.json';
 const CATS = [
-  { k: 'all', n: 'הכול', i: '📚' }, { k: 'todo', n: 'עוד לא נלמדו', i: '📖' }, { k: 'fav', n: 'מועדפים', i: '⭐' },
+  { k: 'all', n: 'הכול', i: '📚' }, { k: 'todo', n: 'עוד לא נלמדו', i: '📖' }, { k: 'fav', n: 'מועדפים', i: '⭐' }, { k: 'weak', n: 'לחזרה (טעויות)', i: '🔁' },
   { k: 'greetings', n: 'ברכות', i: '👋' }, { k: 'daily', n: 'חיי יום-יום', i: '🏠' }, { k: 'food', n: 'אוכל', i: '🍞' },
   { k: 'family', n: 'משפחה', i: '👪' }, { k: 'numbers', n: 'מספרים וזמן', i: '🔢' }, { k: 'verbs', n: 'פעלים', i: '🏃' },
   { k: 'holidays', n: 'שבת וחגים', i: '🕯️' }, { k: 'nature', n: 'טבע וחיות', i: '🌳' }, { k: 'clothes', n: 'לבוש', i: '🧥' },
   { k: 'adj', n: 'תארים וצבעים', i: '🎨' }, { k: 'questions', n: 'מילות שאלה', i: '❓' }, { k: 'phrases', n: 'משפטים שימושיים', i: '💬' },
+  { k: 'shul', n: 'בית כנסת ולימוד', i: '📜' }, { k: 'travel', n: 'נסיעות ומקומות', i: '🚌' }, { k: 'house', n: 'בית וחפצים', i: '🛋️' },
+  { k: 'feelings', n: 'רגשות ותכונות', i: '😊' }, { k: 'work', n: 'עבודה וכסף', i: '💼' },
 ];
+const COL = ['#5B8DEF', '#E07A5F', '#3FA67A', '#9B6BCE', '#E0A100', '#2BA3B8'];
+const ACCENTS = ['#F2A900', '#2BA3B8', '#9B6BCE', '#E07A5F'];
 const THEMES = {
   light: { bg: '#EEF2F6', card: '#FFFFFF', ink: '#1B2A41', soft: '#6B7A90', gold: '#F2A900', ok: '#2E7D5B', bad: '#B23A48', head: '#1B2A41', back: '#1B2A41' },
   dark: { bg: '#0F1624', card: '#1A2438', ink: '#E8EDF5', soft: '#93A1B8', gold: '#F2B93B', ok: '#3FA67A', bad: '#D1566A', head: '#0A101C', back: '#26354F' },
@@ -19,7 +23,7 @@ const THEMES = {
 const shuffle = (a) => [...a].sort(() => Math.random() - 0.5);
 const norm = (s) => s.replace(/[\u0591-\u05C7]/g, '').toLowerCase().trim();
 const poolOf = (cat, S) =>
-  cat === 'all' ? DATA : cat === 'fav' ? DATA.filter((w) => S.fav[w.id]) : cat === 'todo' ? DATA.filter((w) => !S.learned[w.id]) : DATA.filter((w) => w.c === cat);
+  cat === 'all' ? DATA : cat === 'fav' ? DATA.filter((w) => S.fav[w.id]) : cat === 'weak' ? DATA.filter((w) => S.weak[w.id]) : cat === 'todo' ? DATA.filter((w) => !S.learned[w.id]) : DATA.filter((w) => w.c === cat);
 const Ctx = createContext();
 const useApp = () => useContext(Ctx);
 
@@ -33,6 +37,7 @@ function Home({ pick }) {
   const { st, S } = useApp();
   const wod = DATA[Math.floor(Date.now() / 864e5) % DATA.length];
   const done = DATA.filter((w) => S.learned[w.id]).length;
+  const td = S.day === new Date().toDateString() ? S.today : 0;
   return (
     <ScrollView contentContainerStyle={st.pad}>
       <View style={st.card}>
@@ -42,14 +47,15 @@ function Home({ pick }) {
       </View>
       <View style={st.card}>
         <Text style={st.sub}>התקדמות: נלמדו {done} מתוך {DATA.length}</Text>
+        <Text style={st.sub}>יעד יומי: {Math.min(td, 10)}/10 {td >= 10 ? '🎉' : ''}</Text>
         <View style={st.bar}><View style={[st.fill, { width: `${(done / DATA.length) * 100}%` }]} /></View>
       </View>
       <View style={st.grid}>
-        {CATS.map((c) => {
+        {CATS.map((c, ix) => {
           const p = poolOf(c.k, S);
           return (
             <TouchableOpacity key={c.k} style={st.cat} onPress={() => pick(c.k)}>
-              <Text style={st.emoji}>{c.i}</Text>
+              <View style={[st.strip, { backgroundColor: COL[ix % 6] }]} /><Text style={st.emoji}>{c.i}</Text>
               <Text style={st.catName}>{c.n}</Text>
               <Text style={st.sub}>{p.filter((w) => S.learned[w.id]).length}/{p.length}</Text>
             </TouchableOpacity>
@@ -120,8 +126,8 @@ function Quiz({ pool }) {
   const choose = (o) => {
     if (sel) return;
     setSel(o);
-    if (o.id === q.w.id) { setScore(score + 1); setRun(run + 1); setBest(Math.max(best, run + 1)); }
-    else { setRun(0); setWrong([...wrong, q.w]); }
+    if (o.id === q.w.id) { setScore(score + 1); setRun(run + 1); setBest(Math.max(best, run + 1)); setS((s) => { const w = { ...s.weak }; delete w[q.w.id]; return { ...s, weak: w }; }); }
+    else { setRun(0); setWrong([...wrong, q.w]); setS((s) => ({ ...s, weak: { ...s.weak, [q.w.id]: 1 } })); }
   };
   const next = () => {
     if (n + 1 >= qs.length) {
@@ -169,14 +175,56 @@ function Quiz({ pool }) {
   );
 }
 
+function Match({ pool }) {
+  const { st } = useApp();
+  const mkR = () => { const ws = shuffle(pool).slice(0, 6); return { ys: shuffle(ws), hs: shuffle(ws) }; };
+  const [r, setR] = useState(mkR);
+  const [a, setA] = useState(null);
+  const [done, setDone] = useState({});
+  const [bad, setBad] = useState(null);
+  const [moves, setMoves] = useState(0);
+  if (pool.length < 2) return <Empty />;
+  const again = () => { setR(mkR()); setA(null); setDone({}); setMoves(0); };
+  const tap = (side, w) => {
+    if (done[w.id]) return;
+    if (!a || a.side === side) { setA({ side, w }); return; }
+    setMoves(moves + 1);
+    if (a.w.id === w.id) { setDone({ ...done, [w.id]: 1 }); setA(null); }
+    else { setBad(w.id); setA(null); setTimeout(() => setBad(null), 500); }
+  };
+  const fin = Object.keys(done).length === r.ys.length;
+  const cell = (side, w) => {
+    const on = a && a.side === side && a.w.id === w.id;
+    return (
+      <TouchableOpacity key={side + w.id} onPress={() => tap(side, w)} style={[st.opt, { opacity: done[w.id] ? 0.3 : 1 }, on && { backgroundColor: st.gold }, bad === w.id && { backgroundColor: st.badC }]}>
+        <Text style={[st.optT, on && { color: '#1B2A41' }]}>{side === 'y' ? w.y : w.h}</Text>
+      </TouchableOpacity>
+    );
+  };
+  return (
+    <ScrollView contentContainerStyle={st.pad}>
+      <Text style={st.h1}>זיווג מילים</Text>
+      <Text style={st.sub}>{fin ? `כל הכבוד! סיימתם ב-${moves} ניסיונות` : `חברו כל מילה ביידיש לתרגום · ניסיונות ${moves}`}</Text>
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <View style={{ flex: 1 }}>{r.ys.map((w) => cell('y', w))}</View>
+        <View style={{ flex: 1 }}>{r.hs.map((w) => cell('h', w))}</View>
+      </View>
+      <Btn label={fin ? 'משחק חדש' : 'ערבוב מחדש'} onPress={again} />
+    </ScrollView>
+  );
+}
+
 function Search() {
   const { st, S, toggle } = useApp();
   const [q, setQ] = useState('');
+  const [fc, setFc] = useState('all');
   const k = norm(q);
-  const res = k ? DATA.filter((w) => norm(w.y).includes(k) || norm(w.h).includes(k) || w.t.includes(k)) : DATA;
+  const base = fc === 'all' ? DATA : DATA.filter((w) => w.c === fc);
+  const res = k ? base.filter((w) => norm(w.y).includes(k) || norm(w.h).includes(k) || w.t.includes(k)) : base;
   return (
     <View style={{ flex: 1 }}>
       <TextInput style={st.input} value={q} onChangeText={setQ} placeholder="חיפוש ביידיש, בעברית או בתעתיק" placeholderTextColor={st.softC} textAlign="right" />
+      <View style={{ height: 46 }}><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, gap: 8 }}>{CATS.filter((c) => !['todo', 'fav', 'weak'].includes(c.k)).map((c) => <Chip key={c.k} on={fc === c.k} label={c.i + ' ' + c.n} onPress={() => setFc(c.k)} />)}</ScrollView></View>
       <FlatList data={res} keyExtractor={(w) => w.id} contentContainerStyle={{ padding: 16 }}
         ListEmptyComponent={<Text style={st.sub}>לא נמצאו תוצאות. נסו מילה אחרת.</Text>}
         renderItem={({ item }) => (
@@ -217,6 +265,7 @@ function More() {
         <Text style={st.sub}>גודל טקסט</Text>
         <View style={st.row}>{[[0.9, 'קטן'], [1, 'רגיל'], [1.2, 'גדול']].map(([v, l]) => <Chip key={l} on={S.scale === v} label={l} onPress={() => setS({ ...S, scale: v })} />)}</View>
       </View>
+      <View style={st.card}><Text style={st.h1}>צבע ראשי</Text><View style={st.row}>{ACCENTS.map((c, i) => <TouchableOpacity key={c} onPress={() => setS({ ...S, accent: i })} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: c, borderWidth: S.accent === i ? 4 : 0, borderColor: st.softC }} />)}</View></View>
       <Btn label="איפוס התקדמות" alt onPress={reset} />
     </ScrollView>
   );
@@ -225,21 +274,22 @@ function More() {
 const mk = (t, f) => ({
   ...StyleSheet.create({
     root: { flex: 1, backgroundColor: t.bg },
-    head: { backgroundColor: t.head, paddingTop: 36, paddingBottom: 14, alignItems: 'center' },
+    head: { backgroundColor: t.head, paddingTop: 38, paddingBottom: 20, alignItems: 'center', borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
+    strip: { height: 5, width: 36, borderRadius: 3, marginBottom: 8 },
     title: { color: '#fff', fontSize: 24 * f, fontWeight: '700' },
     headSub: { color: t.gold, marginTop: 2, fontSize: 14 * f },
     pad: { padding: 18 },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 18 },
     h1: { fontSize: 20 * f, fontWeight: '700', color: t.ink, textAlign: 'center', marginVertical: 10 },
     sub: { color: t.soft, fontSize: 13 * f, textAlign: 'center', marginVertical: 5 },
-    card: { backgroundColor: t.card, borderRadius: 18, padding: 16, marginBottom: 12 },
+    card: { backgroundColor: t.card, borderRadius: 22, padding: 16, marginBottom: 12, elevation: 2 },
     bar: { height: 10, borderRadius: 5, backgroundColor: t.bg, overflow: 'hidden', marginTop: 4 },
     fill: { height: 10, backgroundColor: t.ok },
     grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-    cat: { width: '48%', backgroundColor: t.card, borderRadius: 18, padding: 14, marginBottom: 12, alignItems: 'center' },
+    cat: { width: '48%', backgroundColor: t.card, borderRadius: 22, padding: 16, marginBottom: 12, alignItems: 'center', elevation: 2 },
     emoji: { fontSize: 28 }, catName: { fontSize: 15 * f, fontWeight: '600', color: t.ink, marginTop: 4, textAlign: 'center' },
     cardBox: { width: 300, height: 280, marginVertical: 14 },
-    face: { position: 'absolute', width: '100%', height: '100%', backgroundColor: t.card, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backfaceVisibility: 'hidden', elevation: 4, padding: 12 },
+    face: { position: 'absolute', width: '100%', height: '100%', backgroundColor: t.card, borderRadius: 30, alignItems: 'center', justifyContent: 'center', backfaceVisibility: 'hidden', elevation: 4, padding: 12 },
     back: { backgroundColor: t.back },
     big: { fontSize: 38 * f, fontWeight: '700', color: t.ink, textAlign: 'center', writingDirection: 'rtl' },
     tr: { fontSize: 18 * f, color: t.soft, marginTop: 6, textAlign: 'center' },
@@ -256,25 +306,25 @@ const mk = (t, f) => ({
     itemY: { fontSize: 22 * f, fontWeight: '700', color: t.ink }, itemH: { fontSize: 16 * f, color: t.ink, marginTop: 2 },
     ico: { fontSize: 22, marginHorizontal: 8, marginVertical: 3 },
     stat: { fontSize: 16 * f, color: t.ink, textAlign: 'right', marginVertical: 3 },
-    tabs: { flexDirection: 'row', backgroundColor: t.card, paddingVertical: 8 },
+    tabs: { flexDirection: 'row', backgroundColor: t.card, paddingVertical: 8, marginHorizontal: 10, marginBottom: 8, borderRadius: 24, elevation: 8 },
     tab: { flex: 1, alignItems: 'center' }, tabI: { fontSize: 20 },
     tabT: { fontSize: 12 * f, color: t.soft }, tabOn: { color: t.ink, fontWeight: '700' },
   }),
   gold: t.gold, okC: t.ok, badC: t.bad, softC: t.soft,
 });
 
-const TABS = [['home', '🏠', 'בית'], ['cards', '🃏', 'כרטיסיות'], ['quiz', '🎯', 'חידון'], ['search', '🔍', 'חיפוש'], ['more', '⚙️', 'עוד']];
+const TABS = [['home', '🏠', 'בית'], ['cards', '🃏', 'כרטיסיות'], ['quiz', '🎯', 'חידון'], ['match', '🧩', 'זיווג'], ['search', '🔍', 'חיפוש'], ['more', '⚙️', 'עוד']];
 
 export default function App() {
-  const [S, setS] = useState({ learned: {}, fav: {}, dark: false, scale: 1, stats: { played: 0, correct: 0, total: 0, streak: 0 } });
+  const [S, setS] = useState({ learned: {}, fav: {}, weak: {}, day: '', today: 0, accent: 0, dark: false, scale: 1, stats: { played: 0, correct: 0, total: 0, streak: 0 } });
   const [ready, setReady] = useState(false);
   const [tab, setTab] = useState('home');
   const [cat, setCat] = useState('all');
   useEffect(() => { FS.readAsStringAsync(FILE).then((x) => setS((s) => ({ ...s, ...JSON.parse(x) }))).catch(() => {}).finally(() => setReady(true)); }, []);
   useEffect(() => { if (ready) FS.writeAsStringAsync(FILE, JSON.stringify(S)).catch(() => {}); }, [S, ready]);
-  const t = THEMES[S.dark ? 'dark' : 'light'];
-  const st = useMemo(() => mk(t, S.scale), [S.dark, S.scale]);
-  const toggle = (key, id) => setS((s) => { const m = { ...s[key] }; if (m[id]) delete m[id]; else m[id] = 1; return { ...s, [key]: m }; });
+  const t = { ...THEMES[S.dark ? 'dark' : 'light'], gold: ACCENTS[S.accent || 0] };
+  const st = useMemo(() => mk(t, S.scale), [S.dark, S.scale, S.accent]);
+  const toggle = (key, id) => setS((s) => { const m = { ...s[key] }; const d = new Date().toDateString(); let today = s.day === d ? s.today : 0; if (m[id]) delete m[id]; else { m[id] = 1; if (key === 'learned') today += 1; } return { ...s, [key]: m, day: d, today }; });
   const pool = poolOf(cat, S);
   return (
     <Ctx.Provider value={{ st, S, setS, toggle }}>
@@ -285,6 +335,7 @@ export default function App() {
           {tab === 'home' && <Home pick={(k) => { setCat(k); setTab('cards'); }} />}
           {tab === 'cards' && <Cards key={cat} pool={pool} />}
           {tab === 'quiz' && <Quiz key={cat} pool={pool} />}
+          {tab === 'match' && <Match key={cat} pool={pool} />}
           {tab === 'search' && <Search />}
           {tab === 'more' && <More />}
         </View>
