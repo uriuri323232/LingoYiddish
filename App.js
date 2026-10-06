@@ -34,7 +34,7 @@ const Btn = ({ label, onPress, alt }) => { const { st } = useApp(); return (
   <TouchableOpacity style={[st.btn, alt && st.btnAlt]} onPress={onPress}><Text style={[st.btnT, alt && st.btnAltT]}>{label}</Text></TouchableOpacity>); };
 const Empty = () => { const { st } = useApp(); return <View style={st.center}><Text style={st.sub}>אין מילים בקטגוריה הזו. בחרו קטגוריה אחרת.</Text></View>; };
 
-function Home({ pick }) {
+function Home({ pick, go }) {
   const { st, S } = useApp();
   const wod = DATA[Math.floor(Date.now() / 864e5) % DATA.length];
   const done = DATA.filter((w) => S.learned[w.id]).length;
@@ -50,8 +50,11 @@ function Home({ pick }) {
       <View style={st.card}>
         <Text style={st.sub}>התקדמות: נלמדו {done} מתוך {DATA.length}</Text>
         <Text style={st.sub}>יעד יומי: {Math.min(td, goal)}/{goal} {td >= goal ? '🎉' : ''}</Text>
+        <Text style={st.sub}>🔥 {S.streakDays || 1} ימים ברצף</Text>
         <View style={st.bar}><View style={[st.fill, { width: `${(done / DATA.length) * 100}%` }]} /></View>
       </View>
+      <View style={st.row}><Btn label="▶ המשך ללמוד" onPress={() => go('todo', 'cards')} /><Btn label="🎯 חידון מהיר" alt onPress={() => go('all', 'quiz')} /></View>
+      <Text style={[st.h1, { marginTop: 14 }]}>קטגוריות</Text>
       <View style={st.grid}>
         {CATS.map((c, ix) => {
           const p = poolOf(c.k, S);
@@ -97,6 +100,7 @@ function Cards({ pool }) {
       <Text style={st.sub}>{(i % list.length) + 1} / {list.length}</Text>
       <TouchableOpacity activeOpacity={0.95} onPress={flip} style={st.cardBox}>
         <Animated.View style={[st.face, rot(['0deg', '180deg'])]}>
+          <Text style={st.tag}>{(CATS.find((c) => c.k === w.c) || {}).i} {(CATS.find((c) => c.k === w.c) || {}).n}</Text>
           <Text style={st.big}>{rev ? w.h : w.y}</Text>
           {!rev && !S.hideTr && <Text style={st.tr}>{w.t}</Text>}
           <Text style={st.sub}>הקישו להפוך</Text>
@@ -111,6 +115,7 @@ function Cards({ pool }) {
         <Chip on={!!S.learned[w.id]} label="✓ נלמד" onPress={() => toggle('learned', w.id)} />
         <Chip on={shuf} label="🔀 ערבוב" onPress={mix} />
         <Chip on={auto} label={auto ? '⏸ עצור' : '▶ ניגון אוטומטי'} onPress={() => setAuto(!auto)} />
+        <Chip on={false} label="🚩 דווח על שגיאה" onPress={() => Share.share({ message: `בדיקת מילה: ${w.y} | ${w.t} | ${w.h}` })} />
         <Chip on={false} label="📤 שיתוף" onPress={() => Share.share({ message: `${w.y} (${w.t}) = ${w.h}` })} />
         <Chip on={rev} label="🔁 עברית קודם" onPress={() => { setRev(!rev); a.setValue(0); setF(false); }} />
       </View>
@@ -310,6 +315,7 @@ const mk = (t, f) => ({
     face: { position: 'absolute', width: '100%', height: '100%', backgroundColor: t.card, borderRadius: 30, alignItems: 'center', justifyContent: 'center', backfaceVisibility: 'hidden', elevation: 4, padding: 12 },
     back: { backgroundColor: t.back },
     big: { fontSize: 38 * f, fontWeight: '700', color: t.ink, textAlign: 'center', writingDirection: 'rtl' },
+    tag: { position: 'absolute', top: 14, color: t.soft, fontSize: 12 * f, backgroundColor: t.bg, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10, overflow: 'hidden' },
     tr: { fontSize: 18 * f, color: t.soft, marginTop: 6, textAlign: 'center' },
     row: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginVertical: 6 },
     chip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, backgroundColor: t.card, borderWidth: 1, borderColor: t.soft },
@@ -339,6 +345,11 @@ export default function App() {
   const [tab, setTab] = useState('home');
   const [cat, setCat] = useState('all');
   useEffect(() => { FS.readAsStringAsync(FILE).then((x) => setS((s) => ({ ...s, ...JSON.parse(x) }))).catch(() => {}).finally(() => setReady(true)); }, []);
+  useEffect(() => {
+    if (!ready) return;
+    const d = new Date().toDateString(), y = new Date(Date.now() - 864e5).toDateString();
+    setS((s) => (s.last === d ? s : { ...s, last: d, streakDays: s.last === y ? (s.streakDays || 0) + 1 : 1 }));
+  }, [ready]);
   useEffect(() => { if (ready) FS.writeAsStringAsync(FILE, JSON.stringify(S)).catch(() => {}); }, [S, ready]);
   const t = { ...THEMES[S.dark ? 'dark' : 'light'], gold: ACCENTS[S.accent || 0] };
   const st = useMemo(() => mk(t, S.scale), [S.dark, S.scale, S.accent]);
@@ -350,7 +361,7 @@ export default function App() {
         <StatusBar barStyle="light-content" backgroundColor={t.head} />
         <View style={st.head}><Text style={st.title}>יידיש אָפליין</Text><Text style={st.headSub}>{CATS.find((c) => c.k === cat).n}</Text></View>
         <View style={{ flex: 1 }}>
-          {tab === 'home' && <Home pick={(k) => { setCat(k); setTab('cards'); }} />}
+          {tab === 'home' && <Home pick={(k) => { setCat(k); setTab('cards'); }} go={(k, t2) => { setCat(k); setTab(t2); }} />}
           {tab === 'cards' && <Cards key={cat} pool={pool} />}
           {tab === 'quiz' && <Quiz key={cat} pool={pool} />}
           {tab === 'match' && <Match key={cat} pool={pool} />}
