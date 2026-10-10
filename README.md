@@ -1,10 +1,11 @@
 # Yiddish Offline (Expo / React Native)
-Fully offline Yiddish learner: flashcards, quiz, search. All data lives in `data/vocabulary.json` (fields: `c` category, `y` Yiddish, `t` transliteration, `h` Hebrew).
+אפליקציה ללימוד יידיש בלי חיבור לאינטרנט: כרטיסיות, חזרה חכמה, חידון, זיווג וחיפוש.
+כל המילים נמצאות ב-`vocabulary.json` (שדות: `c` קטגוריה, `y` יידיש, `t` תעתיק, `h` עברית).
 
     npm install
-    npx expo start --android      # run on device/emulator via Expo Go
+    npx expo start --android
 
-Add words by appending lines to `data/vocabulary.json`. Categories: greetings, daily, food, family, numbers, verbs.
+הוספת מילים: מוסיפים שורה ל-`vocabulary.json`. הקטגוריות מוגדרות במערך `CATS` בתחילת `App.js`.
 
-## Build an APK on GitHub
-Push to `main` (or run the workflow manually from the Actions tab). When it finishes, download `yiddish-offline-apk` from the run's Artifacts, unzip it and install `app-release.apk` on the phone.
+## בניית APK ב-GitHub
+דחיפה ל-`main` (או הרצה ידנית מלשונית Actions) מפעילה את `main.yml`. בסיום מורידים את `yiddish-offline-apk` מה-Artifacts ומתקינים את `app-release.apk`.

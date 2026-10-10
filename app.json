@@ -2,10 +2,14 @@
   "expo": {
     "name": "יידיש אָפליין",
     "slug": "yiddish-offline",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "light",
-    "splash": { "backgroundColor": "#1B2A41" },
-    "android": { "package": "com.example.yiddishoffline" }
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#1B2A41"
+    },
+    "android": {
+      "package": "com.example.yiddishoffline"
+    }
   }
 }

@@ -1,12 +1,12 @@
 import React, { useRef, useState, useEffect, useMemo, createContext, useContext } from 'react';
-import { View, Text, TouchableOpacity, Animated, TextInput, FlatList, StyleSheet, SafeAreaView, ScrollView, StatusBar, Alert, Share } from 'react-native';
+import { View, Text, TouchableOpacity, Animated, TextInput, FlatList, StyleSheet, SafeAreaView, ScrollView, StatusBar, Alert, Share, Appearance } from 'react-native';
 import * as FS from 'expo-file-system';
 import RAW from './vocabulary.json';
 
 const DATA = RAW.map((w) => ({ ...w, id: w.y + '|' + w.h }));
 const FILE = FS.documentDirectory + 'progress.json';
 const CATS = [
-  { k: 'all', n: 'הכול', i: '📚' }, { k: 'todo', n: 'עוד לא נלמדו', i: '📖' }, { k: 'fav', n: 'מועדפים', i: '⭐' }, { k: 'weak', n: 'לחזרה (טעויות)', i: '🔁' },
+  { k: 'all', n: 'הכול', i: '📚' }, { k: 'todo', n: 'עוד לא נלמדו', i: '📖' }, { k: 'fav', n: 'מועדפים', i: '⭐' }, { k: 'weak', n: 'לחזרה (טעויות)', i: '🔁' }, { k: 'due', n: 'חזרה חכמה', i: '🧠' },
   { k: 'greetings', n: 'ברכות', i: '👋' }, { k: 'daily', n: 'חיי יום-יום', i: '🏠' }, { k: 'food', n: 'אוכל', i: '🍞' },
   { k: 'family', n: 'משפחה', i: '👪' }, { k: 'numbers', n: 'מספרים וזמן', i: '🔢' }, { k: 'verbs', n: 'פעלים', i: '🏃' },
   { k: 'holidays', n: 'שבת וחגים', i: '🕯️' }, { k: 'nature', n: 'טבע וחיות', i: '🌳' }, { k: 'clothes', n: 'לבוש', i: '🧥' },
@@ -22,9 +22,13 @@ const THEMES = {
   dark: { bg: '#0F1624', card: '#1A2438', ink: '#E8EDF5', soft: '#93A1B8', gold: '#F2B93B', ok: '#3FA67A', bad: '#D1566A', head: '#0A101C', back: '#26354F' },
 };
 const shuffle = (a) => { const r = [...a]; for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; };
-const norm = (s) => s.replace(/[\u0591-\u05C7]/g, '').toLowerCase().trim();
+const norm = (s) => s.normalize('NFD').replace(/[\u0591-\u05C7]/g, '').replace(/\u05F0/g, 'וו').replace(/\u05F1/g, 'וי').replace(/\u05F2/g, 'יי').toLowerCase().trim();
+const dayNo = () => Math.floor((Date.now() - new Date().getTimezoneOffset() * 6e4) / 864e5);
+const INT = [0, 1, 3, 7, 14, 30];
+const isDue = (S, id) => !!(S.srs && S.srs[id] && S.srs[id][1] <= dayNo());
+const isNew = (S, id) => !(S.srs && S.srs[id]);
 const poolOf = (cat, S) =>
-  cat === 'all' ? DATA : cat === 'fav' ? DATA.filter((w) => S.fav[w.id]) : cat === 'weak' ? DATA.filter((w) => S.weak[w.id]) : cat === 'todo' ? DATA.filter((w) => !S.learned[w.id]) : DATA.filter((w) => w.c === cat);
+  cat === 'all' ? DATA : cat === 'fav' ? DATA.filter((w) => S.fav[w.id]) : cat === 'weak' ? DATA.filter((w) => S.weak[w.id]) : cat === 'todo' ? DATA.filter((w) => !S.learned[w.id]) : cat === 'due' ? [...DATA.filter((w) => isDue(S, w.id)), ...DATA.filter((w) => isNew(S, w.id)).slice(0, 5)] : DATA.filter((w) => w.c === cat);
 const Ctx = createContext();
 const useApp = () => useContext(Ctx);
 
@@ -40,6 +44,7 @@ function Home({ pick, go }) {
   const done = DATA.filter((w) => S.learned[w.id]).length;
   const td = S.day === new Date().toDateString() ? S.today : 0;
   const goal = S.goal || 10;
+  const dueN = DATA.filter((w) => isDue(S, w.id)).length;
   return (
     <ScrollView contentContainerStyle={st.pad}>
       <View style={[st.card, { borderTopWidth: 4, borderTopColor: st.gold }]}>
@@ -48,12 +53,15 @@ function Home({ pick, go }) {
         <Text style={st.tr}>{wod.t} · {wod.h}</Text>
       </View>
       <View style={st.card}>
-        <Text style={st.sub}>התקדמות: נלמדו {done} מתוך {DATA.length}</Text>
-        <Text style={st.sub}>יעד יומי: {Math.min(td, goal)}/{goal} {td >= goal ? '🎉' : ''}</Text>
-        <Text style={st.sub}>🔥 {S.streakDays || 1} ימים ברצף</Text>
+        <View style={st.pills}>
+          <View style={st.pill}><Text style={st.pillN}>{done}</Text><Text style={st.pillL}>נלמדו מתוך {DATA.length}</Text></View>
+          <View style={st.pill}><Text style={st.pillN}>{Math.min(td, goal)}/{goal} {td >= goal ? '🎉' : ''}</Text><Text style={st.pillL}>יעד יומי</Text></View>
+          <View style={st.pill}><Text style={st.pillN}>🔥 {S.streakDays || 1}</Text><Text style={st.pillL}>ימים ברצף</Text></View>
+        </View>
         <View style={st.bar}><View style={[st.fill, { width: `${(done / DATA.length) * 100}%` }]} /></View>
       </View>
       <View style={st.row}><Btn label="▶ המשך ללמוד" onPress={() => go('todo', 'cards')} /><Btn label="🎯 חידון מהיר" alt onPress={() => go('all', 'quiz')} /></View>
+      <View style={st.row}><Btn label={`🧠 חזרה חכמה${dueN ? ' (' + dueN + ' לחזרה)' : ''}`} alt onPress={() => go('due', 'cards')} /></View>
       <Text style={[st.h1, { marginTop: 14 }]}>קטגוריות</Text>
       <View style={st.grid}>
         {CATS.map((c, ix) => {
@@ -73,7 +81,7 @@ function Home({ pick, go }) {
 }
 
 function Cards({ pool }) {
-  const { st, S, toggle } = useApp();
+  const { st, S, toggle, rate } = useApp();
   const [list, setList] = useState(pool);
   const [shuf, setShuf] = useState(false);
   const [rev, setRev] = useState(false);
@@ -98,6 +106,7 @@ function Cards({ pool }) {
   return (
     <View style={st.center}>
       <Text style={st.sub}>{(i % list.length) + 1} / {list.length}</Text>
+      <View style={[st.bar, { width: 300, maxWidth: '90%' }]}><View style={[st.fill, { backgroundColor: st.gold, width: `${(((i % list.length) + 1) / list.length) * 100}%` }]} /></View>
       <TouchableOpacity activeOpacity={0.95} onPress={flip} style={st.cardBox}>
         <Animated.View style={[st.face, rot(['0deg', '180deg'])]}>
           <Text style={st.tag}>{(CATS.find((c) => c.k === w.c) || {}).i} {(CATS.find((c) => c.k === w.c) || {}).n}</Text>
@@ -114,11 +123,17 @@ function Cards({ pool }) {
         <Chip on={!!S.fav[w.id]} label="⭐ מועדף" onPress={() => toggle('fav', w.id)} />
         <Chip on={!!S.learned[w.id]} label="✓ נלמד" onPress={() => toggle('learned', w.id)} />
         <Chip on={shuf} label="🔀 ערבוב" onPress={mix} />
-        <Chip on={auto} label={auto ? '⏸ עצור' : '▶ ניגון אוטומטי'} onPress={() => setAuto(!auto)} />
-        <Chip on={false} label="🚩 דווח על שגיאה" onPress={() => Share.share({ message: `בדיקת מילה: ${w.y} | ${w.t} | ${w.h}` })} />
+        <Chip on={auto} label={auto ? '⏸ עצור' : '▶ אוטומטי'} onPress={() => setAuto(!auto)} />
+        <Chip on={false} label="🚩 שגיאה" onPress={() => Share.share({ message: `בדיקת מילה: ${w.y} | ${w.t} | ${w.h}` })} />
         <Chip on={false} label="📤 שיתוף" onPress={() => Share.share({ message: `${w.y} (${w.t}) = ${w.h}` })} />
         <Chip on={rev} label="🔁 עברית קודם" onPress={() => { setRev(!rev); a.setValue(0); setF(false); }} />
       </View>
+      {flipped && !auto && (
+        <View style={st.row}>
+          <Btn label="🔁 לא ידעתי" alt onPress={() => { rate(w.id, false); go(1); }} />
+          <Btn label="✓ ידעתי" onPress={() => { rate(w.id, true); go(1); }} />
+        </View>
+      )}
       <View style={st.row}><Btn label="הקודם" alt onPress={() => go(-1)} /><Btn label="הבא" onPress={() => go(1)} /></View>
     </View>
   );
@@ -246,7 +261,7 @@ function Search() {
   return (
     <View style={{ flex: 1 }}>
       <TextInput style={st.input} value={q} onChangeText={setQ} placeholder="חיפוש ביידיש, בעברית או בתעתיק" placeholderTextColor={st.softC} textAlign="right" />
-      <View style={{ height: 46 }}><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, gap: 8 }}>{CATS.filter((c) => !['todo', 'fav', 'weak'].includes(c.k)).map((c) => <Chip key={c.k} on={fc === c.k} label={c.i + ' ' + c.n} onPress={() => setFc(c.k)} />)}</ScrollView></View>
+      <View style={{ height: 46 }}><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, gap: 8 }}>{CATS.filter((c) => !['todo', 'fav', 'weak', 'due'].includes(c.k)).map((c) => <Chip key={c.k} on={fc === c.k} label={c.i + ' ' + c.n} onPress={() => setFc(c.k)} />)}</ScrollView></View>
       <FlatList data={res} keyExtractor={(w) => w.id} contentContainerStyle={{ padding: 16 }}
         ListEmptyComponent={<Text style={st.sub}>לא נמצאו תוצאות. נסו מילה אחרת.</Text>}
         renderItem={({ item }) => (
@@ -266,10 +281,11 @@ function Search() {
 
 function More() {
   const { st, S, setS } = useApp();
+  const [imp, setImp] = useState('');
   const { played, correct, total, streak } = S.stats;
   const reset = () => Alert.alert('איפוס התקדמות', 'למחוק את כל המילים שנלמדו, המועדפים והסטטיסטיקה?', [
     { text: 'ביטול', style: 'cancel' },
-    { text: 'מחיקה', style: 'destructive', onPress: () => setS((s) => ({ ...s, learned: {}, fav: {}, stats: { played: 0, correct: 0, total: 0, streak: 0 } })) },
+    { text: 'מחיקה', style: 'destructive', onPress: () => setS((s) => ({ ...s, learned: {}, fav: {}, weak: {}, srs: {}, today: 0, stats: { played: 0, correct: 0, total: 0, streak: 0 } })) },
   ]);
   return (
     <ScrollView contentContainerStyle={st.pad}>
@@ -289,6 +305,13 @@ function More() {
       </View>
       <View style={st.card}><Text style={st.h1}>למידה</Text><Text style={st.sub}>יעד יומי (מילים)</Text><View style={st.row}>{[5, 10, 20, 30].map((g) => <Chip key={g} on={(S.goal || 10) === g} label={String(g)} onPress={() => setS({ ...S, goal: g })} />)}</View><View style={st.row}><Chip on={!!S.hideTr} label={S.hideTr ? 'תעתיק מוסתר' : 'תעתיק מוצג'} onPress={() => setS({ ...S, hideTr: !S.hideTr })} /></View></View>
       <View style={st.card}><Text style={st.h1}>צבע ראשי</Text><View style={st.row}>{ACCENTS.map((c, i) => <TouchableOpacity key={c} onPress={() => setS({ ...S, accent: i })} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: c, borderWidth: S.accent === i ? 4 : 0, borderColor: st.softC }} />)}</View></View>
+      <View style={st.card}>
+        <Text style={st.h1}>גיבוי ושחזור</Text>
+        <Text style={st.sub}>שמרו את ההתקדמות בהודעה/הערה, והדביקו כאן כדי לשחזר (למשל במכשיר חדש).</Text>
+        <View style={st.row}><Btn label="📤 ייצוא התקדמות" alt onPress={() => Share.share({ message: JSON.stringify({ learned: S.learned, fav: S.fav, weak: S.weak, srs: S.srs || {}, stats: S.stats, goal: S.goal }) })} /></View>
+        <TextInput style={st.input} value={imp} onChangeText={setImp} placeholder="הדביקו כאן קוד גיבוי" placeholderTextColor={st.softC} multiline />
+        <Btn label="📥 שחזור" onPress={() => { try { const p = JSON.parse(imp); if (!p || typeof p.learned !== 'object' || typeof p.fav !== 'object') throw 0; setS((s) => ({ ...s, ...p })); setImp(''); Alert.alert('בוצע', 'ההתקדמות שוחזרה.'); } catch (e) { Alert.alert('שגיאה', 'קוד הגיבוי אינו תקין.'); } }} />
+      </View>
       <Btn label="איפוס התקדמות" alt onPress={reset} />
     </ScrollView>
   );
@@ -297,7 +320,7 @@ function More() {
 const mk = (t, f) => ({
   ...StyleSheet.create({
     root: { flex: 1, backgroundColor: t.bg },
-    head: { backgroundColor: t.head, paddingTop: 38, paddingBottom: 20, alignItems: 'center', borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
+    head: { backgroundColor: t.head, paddingTop: (StatusBar.currentHeight || 24) + 12, paddingBottom: 20, alignItems: 'center', borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
     strip: { height: 5, width: 36, borderRadius: 3, marginBottom: 8 },
     title: { color: '#fff', fontSize: 24 * f, fontWeight: '700' },
     headSub: { color: t.gold, marginTop: 2, fontSize: 14 * f },
@@ -311,7 +334,10 @@ const mk = (t, f) => ({
     grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
     cat: { width: '48%', backgroundColor: t.card, borderRadius: 22, padding: 16, marginBottom: 12, alignItems: 'center', elevation: 2 },
     emoji: { fontSize: 28 }, catName: { fontSize: 15 * f, fontWeight: '600', color: t.ink, marginTop: 4, textAlign: 'center' },
-    cardBox: { width: 300, height: 280, marginVertical: 14 },
+    cardBox: { width: 320, maxWidth: '92%', height: 280, marginVertical: 14 },
+    pills: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginBottom: 10 },
+    pill: { flex: 1, backgroundColor: t.bg, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 6, alignItems: 'center' },
+    pillN: { fontSize: 17 * f, fontWeight: '700', color: t.ink }, pillL: { fontSize: 11 * f, color: t.soft, marginTop: 2, textAlign: 'center' },
     face: { position: 'absolute', width: '100%', height: '100%', backgroundColor: t.card, borderRadius: 30, alignItems: 'center', justifyContent: 'center', backfaceVisibility: 'hidden', elevation: 4, padding: 12 },
     back: { backgroundColor: t.back },
     big: { fontSize: 38 * f, fontWeight: '700', color: t.ink, textAlign: 'center', writingDirection: 'rtl' },
@@ -325,7 +351,7 @@ const mk = (t, f) => ({
     btnT: { fontSize: 16 * f, fontWeight: '700', color: '#1B2A41' }, btnAltT: { color: t.ink },
     opt: { backgroundColor: t.card, borderRadius: 14, padding: 16, marginTop: 10 },
     optT: { fontSize: 18 * f, color: t.ink, textAlign: 'center' },
-    input: { backgroundColor: t.card, color: t.ink, margin: 16, padding: 14, borderRadius: 14, fontSize: 16 * f },
+    input: { backgroundColor: t.card, color: t.ink, margin: 16, padding: 14, borderRadius: 14, fontSize: 16 * f, textAlign: 'right', borderWidth: 1, borderColor: t.bg },
     item: { backgroundColor: t.card, borderRadius: 14, padding: 14, marginBottom: 10, flexDirection: 'row', alignItems: 'center' },
     itemY: { fontSize: 22 * f, fontWeight: '700', color: t.ink }, itemH: { fontSize: 16 * f, color: t.ink, marginTop: 2 },
     ico: { fontSize: 22, marginHorizontal: 8, marginVertical: 3 },
@@ -340,7 +366,7 @@ const mk = (t, f) => ({
 const TABS = [['home', '🏠', 'בית'], ['cards', '🃏', 'כרטיסיות'], ['quiz', '🎯', 'חידון'], ['match', '🧩', 'זיווג'], ['search', '🔍', 'חיפוש'], ['more', '⚙️', 'עוד']];
 
 export default function App() {
-  const [S, setS] = useState({ learned: {}, fav: {}, weak: {}, day: '', today: 0, accent: 0, dark: false, scale: 1, stats: { played: 0, correct: 0, total: 0, streak: 0 } });
+  const [S, setS] = useState({ learned: {}, fav: {}, weak: {}, day: '', today: 0, accent: 0, dark: Appearance.getColorScheme() === 'dark', scale: 1, srs: {}, stats: { played: 0, correct: 0, total: 0, streak: 0 } });
   const [ready, setReady] = useState(false);
   const [tab, setTab] = useState('home');
   const [cat, setCat] = useState('all');
@@ -354,9 +380,16 @@ export default function App() {
   const t = { ...THEMES[S.dark ? 'dark' : 'light'], gold: ACCENTS[S.accent || 0] };
   const st = useMemo(() => mk(t, S.scale), [S.dark, S.scale, S.accent]);
   const toggle = (key, id) => setS((s) => { const m = { ...s[key] }; const d = new Date().toDateString(); let today = s.day === d ? s.today : 0; if (m[id]) delete m[id]; else { m[id] = 1; if (key === 'learned') today += 1; } return { ...s, [key]: m, day: d, today }; });
+  const rate = (id, ok) => setS((s) => {
+    const c = (s.srs || {})[id], box = ok ? Math.min((c ? c[0] : 0) + 1, 5) : 0;
+    const learned = { ...s.learned }, weak = { ...s.weak }, d = new Date().toDateString();
+    let today = s.day === d ? s.today : 0;
+    if (ok) { delete weak[id]; if (box >= 3 && !learned[id]) { learned[id] = 1; today += 1; } } else weak[id] = 1;
+    return { ...s, srs: { ...(s.srs || {}), [id]: [box, dayNo() + INT[box]] }, learned, weak, day: d, today };
+  });
   const pool = poolOf(cat, S);
   return (
-    <Ctx.Provider value={{ st, S, setS, toggle }}>
+    <Ctx.Provider value={{ st, S, setS, toggle, rate }}>
       <SafeAreaView style={st.root}>
         <StatusBar barStyle="light-content" backgroundColor={t.head} />
         <View style={st.head}><Text style={st.title}>יידיש אָפליין</Text><Text style={st.headSub}>{CATS.find((c) => c.k === cat).n}</Text></View>
