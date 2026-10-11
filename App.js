@@ -338,6 +338,7 @@ const mk = (t, f) => ({
     head: { backgroundColor: t.head, paddingTop: (StatusBar.currentHeight || 24) + 6, paddingBottom: 12, alignItems: 'center', borderBottomLeftRadius: 22, borderBottomRightRadius: 22 },
     strip: { height: 5, width: 36, borderRadius: 3, marginBottom: 8 },
     title: { color: '#fff', fontSize: 20 * Math.min(f, 1.1), fontWeight: '700' },
+    credit: { color: t.gold, marginTop: 2, fontSize: 13 * Math.min(f, 1.1), fontWeight: '700' },
     headSub: { color: t.gold, marginTop: 1, fontSize: 12.5 * Math.min(f, 1.1) },
     pad: { padding: 18 },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 18 },
@@ -422,7 +423,7 @@ export default function App() {
     <Ctx.Provider value={{ st, S, setS, toggle, rate }}>
       <SafeAreaView style={st.root}>
         <StatusBar barStyle="light-content" backgroundColor={t.head} />
-        <View style={st.head}><Text style={st.title}>יידיש אָפליין</Text><Text style={st.headSub}>{CATS.find((c) => c.k === cat).n}</Text></View>
+        <View style={st.head}><Text style={st.title}>יידיש אָפליין</Text><Text style={st.credit}>בשיתוף: יהודי לא פשוט @ מתמחים טופ</Text><Text style={st.headSub}>{CATS.find((c) => c.k === cat).n}</Text></View>
         <View style={{ flex: 1 }}>
           {tab === 'home' && <Home pick={(k) => { setCat(k); setTab('cards'); }} go={(k, t2) => { setCat(k); setTab(t2); }} />}
           {tab === 'cards' && <Cards key={cat} pool={pool} />}
