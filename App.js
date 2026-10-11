@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useMemo, createContext, useContext } from 'react';
-import { View, Text, TouchableOpacity, Animated, TextInput, FlatList, StyleSheet, SafeAreaView, ScrollView, StatusBar, Alert, Share, Appearance } from 'react-native';
+import { View, Text, TouchableOpacity, Animated, TextInput, FlatList, StyleSheet, SafeAreaView, ScrollView, StatusBar, Alert, Share, Appearance, BackHandler, Keyboard, useWindowDimensions } from 'react-native';
 import * as FS from 'expo-file-system';
 import RAW from './vocabulary.json';
 
@@ -34,8 +34,12 @@ const useApp = () => useContext(Ctx);
 
 const Chip = ({ on, label, onPress }) => { const { st } = useApp(); return (
   <TouchableOpacity onPress={onPress} style={[st.chip, on && st.chipOn]}><Text style={[st.chipT, on && st.chipTOn]}>{label}</Text></TouchableOpacity>); };
-const Btn = ({ label, onPress, alt }) => { const { st } = useApp(); return (
-  <TouchableOpacity style={[st.btn, alt && st.btnAlt]} onPress={onPress}><Text style={[st.btnT, alt && st.btnAltT]}>{label}</Text></TouchableOpacity>); };
+const Btn = ({ label, onPress, alt, grow, off }) => { const { st } = useApp(); return (
+  <TouchableOpacity disabled={off} style={[st.btn, alt && st.btnAlt, grow && { flex: 1, paddingHorizontal: 8, marginTop: 6 }, off && { opacity: 0.35 }]} onPress={onPress}><Text style={[st.btnT, alt && st.btnAltT]}>{label}</Text></TouchableOpacity>); };
+const Tool = ({ icon, label, on, onPress }) => { const { st } = useApp(); return (
+  <TouchableOpacity accessibilityLabel={label} onPress={onPress} style={[st.tool, on && st.toolOn]}>
+    <Text style={st.toolI}>{icon}</Text><Text style={[st.toolT, on && { color: '#1B2A41', fontWeight: '700' }]} numberOfLines={1} adjustsFontSizeToFit>{label}</Text>
+  </TouchableOpacity>); };
 const Empty = () => { const { st } = useApp(); return <View style={st.center}><Text style={st.sub}>אין מילים בקטגוריה הזו. בחרו קטגוריה אחרת.</Text></View>; };
 
 function Home({ pick, go }) {
@@ -82,6 +86,7 @@ function Home({ pick, go }) {
 
 function Cards({ pool }) {
   const { st, S, toggle, rate } = useApp();
+  const { height } = useWindowDimensions();
   const [list, setList] = useState(pool);
   const [shuf, setShuf] = useState(false);
   const [rev, setRev] = useState(false);
@@ -103,39 +108,49 @@ function Cards({ pool }) {
   const go = (d) => { a.setValue(0); setF(false); setI((i + d + list.length) % list.length); };
   const mix = () => { setShuf(!shuf); setList(!shuf ? shuffle(pool) : pool); setI(0); a.setValue(0); setF(false); };
   const rot = (o) => ({ transform: [{ perspective: 1000 }, { rotateY: a.interpolate({ inputRange: [0, 180], outputRange: o }) }] });
+  const cardH = Math.max(190, Math.min(290, height * 0.3));
+  const menu = () => Alert.alert(w.y, `${w.t} = ${w.h}`, [
+    { text: 'שיתוף המילה', onPress: () => Share.share({ message: `${w.y} (${w.t}) = ${w.h}` }) },
+    { text: 'דיווח על שגיאה בתרגום', onPress: () => Share.share({ message: `בדיקת מילה: ${w.y} | ${w.t} | ${w.h}` }) },
+    { text: 'ביטול', style: 'cancel' },
+  ]);
+  const cat = CATS.find((c) => c.k === w.c) || {};
+  const n = (i % list.length) + 1;
   return (
-    <View style={st.center}>
-      <Text style={st.sub}>{(i % list.length) + 1} / {list.length}</Text>
-      <View style={[st.bar, { width: 300, maxWidth: '90%' }]}><View style={[st.fill, { backgroundColor: st.gold, width: `${(((i % list.length) + 1) / list.length) * 100}%` }]} /></View>
-      <TouchableOpacity activeOpacity={0.95} onPress={flip} style={st.cardBox}>
+    <ScrollView contentContainerStyle={st.cardsPage} showsVerticalScrollIndicator={false}>
+      <View style={st.prog}>
+        <Text style={st.sub}>{n} / {list.length}</Text>
+        <View style={st.bar}><View style={[st.fill, { backgroundColor: st.gold, width: `${(n / list.length) * 100}%` }]} /></View>
+      </View>
+      <TouchableOpacity activeOpacity={0.95} onPress={flip} style={[st.cardBox, { height: cardH }]}>
         <Animated.View style={[st.face, rot(['0deg', '180deg'])]}>
-          <Text style={st.tag}>{(CATS.find((c) => c.k === w.c) || {}).i} {(CATS.find((c) => c.k === w.c) || {}).n}</Text>
-          <Text style={st.big}>{rev ? w.h : w.y}</Text>
+          <Text style={st.tag}>{cat.i} {cat.n}</Text>
+          <Text style={st.big} numberOfLines={3} adjustsFontSizeToFit>{rev ? w.h : w.y}</Text>
           {!rev && !S.hideTr && <Text style={st.tr}>{w.t}</Text>}
-          <Text style={st.sub}>הקישו להפוך</Text>
+          <Text style={[st.sub, { position: 'absolute', bottom: 10 }]}>הקישו להפוך</Text>
         </Animated.View>
         <Animated.View style={[st.face, st.back, rot(['180deg', '360deg'])]}>
-          <Text style={[st.big, { color: '#fff' }]}>{rev ? w.y : w.h}</Text>
+          <Text style={[st.big, { color: '#fff' }]} numberOfLines={3} adjustsFontSizeToFit>{rev ? w.y : w.h}</Text>
           {rev && <Text style={[st.tr, { color: st.gold }]}>{w.t}</Text>}
         </Animated.View>
       </TouchableOpacity>
-      <View style={st.row}>
-        <Chip on={!!S.fav[w.id]} label="⭐ מועדף" onPress={() => toggle('fav', w.id)} />
-        <Chip on={!!S.learned[w.id]} label="✓ נלמד" onPress={() => toggle('learned', w.id)} />
-        <Chip on={shuf} label="🔀 ערבוב" onPress={mix} />
-        <Chip on={auto} label={auto ? '⏸ עצור' : '▶ אוטומטי'} onPress={() => setAuto(!auto)} />
-        <Chip on={false} label="🚩 שגיאה" onPress={() => Share.share({ message: `בדיקת מילה: ${w.y} | ${w.t} | ${w.h}` })} />
-        <Chip on={false} label="📤 שיתוף" onPress={() => Share.share({ message: `${w.y} (${w.t}) = ${w.h}` })} />
-        <Chip on={rev} label="🔁 עברית קודם" onPress={() => { setRev(!rev); a.setValue(0); setF(false); }} />
+      <View style={st.tools}>
+        <Tool icon={S.fav[w.id] ? '⭐' : '☆'} label="מועדף" on={!!S.fav[w.id]} onPress={() => toggle('fav', w.id)} />
+        <Tool icon="✓" label="נלמד" on={!!S.learned[w.id]} onPress={() => toggle('learned', w.id)} />
+        <Tool icon="🔀" label="ערבוב" on={shuf} onPress={mix} />
+        <Tool icon={auto ? '⏸' : '▶'} label="אוטומטי" on={auto} onPress={() => setAuto(!auto)} />
+        <Tool icon="🔁" label="עברית קודם" on={rev} onPress={() => { setRev(!rev); a.setValue(0); setF(false); }} />
+        <Tool icon="⋯" label="עוד" onPress={menu} />
       </View>
-      {flipped && !auto && (
-        <View style={st.row}>
-          <Btn label="🔁 לא ידעתי" alt onPress={() => { rate(w.id, false); go(1); }} />
-          <Btn label="✓ ידעתי" onPress={() => { rate(w.id, true); go(1); }} />
-        </View>
-      )}
-      <View style={st.row}><Btn label="הקודם" alt onPress={() => go(-1)} /><Btn label="הבא" onPress={() => go(1)} /></View>
-    </View>
+      <View style={st.rowFull}>
+        <Btn grow alt off={!flipped || auto} label="🔁 לא ידעתי" onPress={() => { rate(w.id, false); go(1); }} />
+        <Btn grow off={!flipped || auto} label="✓ ידעתי" onPress={() => { rate(w.id, true); go(1); }} />
+      </View>
+      <View style={st.rowFull}>
+        <Btn grow alt label="הקודם" onPress={() => go(-1)} />
+        <Btn grow alt label="הבא" onPress={() => go(1)} />
+      </View>
+    </ScrollView>
   );
 }
 
@@ -299,18 +314,18 @@ function More() {
       </View>
       <View style={st.card}>
         <Text style={st.h1}>תצוגה</Text>
-        <View style={st.row}><Chip on={!S.dark} label="☀️ בהיר" onPress={() => setS({ ...S, dark: false })} /><Chip on={S.dark} label="🌙 כהה" onPress={() => setS({ ...S, dark: true })} /></View>
+        <View style={st.row}><Chip on={!S.dark} label="☀️ בהיר" onPress={() => setS((s) => ({ ...s, dark: false }))} /><Chip on={S.dark} label="🌙 כהה" onPress={() => setS((s) => ({ ...s, dark: true }))} /></View>
         <Text style={st.sub}>גודל טקסט</Text>
-        <View style={st.row}>{[[0.9, 'קטן'], [1, 'רגיל'], [1.2, 'גדול']].map(([v, l]) => <Chip key={l} on={S.scale === v} label={l} onPress={() => setS({ ...S, scale: v })} />)}</View>
+        <View style={st.row}>{[[0.9, 'קטן'], [1, 'רגיל'], [1.2, 'גדול']].map(([v, l]) => <Chip key={l} on={S.scale === v} label={l} onPress={() => setS((s) => ({ ...s, scale: v }))} />)}</View>
       </View>
-      <View style={st.card}><Text style={st.h1}>למידה</Text><Text style={st.sub}>יעד יומי (מילים)</Text><View style={st.row}>{[5, 10, 20, 30].map((g) => <Chip key={g} on={(S.goal || 10) === g} label={String(g)} onPress={() => setS({ ...S, goal: g })} />)}</View><View style={st.row}><Chip on={!!S.hideTr} label={S.hideTr ? 'תעתיק מוסתר' : 'תעתיק מוצג'} onPress={() => setS({ ...S, hideTr: !S.hideTr })} /></View></View>
-      <View style={st.card}><Text style={st.h1}>צבע ראשי</Text><View style={st.row}>{ACCENTS.map((c, i) => <TouchableOpacity key={c} onPress={() => setS({ ...S, accent: i })} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: c, borderWidth: S.accent === i ? 4 : 0, borderColor: st.softC }} />)}</View></View>
+      <View style={st.card}><Text style={st.h1}>למידה</Text><Text style={st.sub}>יעד יומי (מילים)</Text><View style={st.row}>{[5, 10, 20, 30].map((g) => <Chip key={g} on={(S.goal || 10) === g} label={String(g)} onPress={() => setS((s) => ({ ...s, goal: g }))} />)}</View><View style={st.row}><Chip on={!!S.hideTr} label={S.hideTr ? 'תעתיק מוסתר' : 'תעתיק מוצג'} onPress={() => setS((s) => ({ ...s, hideTr: !s.hideTr }))} /></View></View>
+      <View style={st.card}><Text style={st.h1}>צבע ראשי</Text><View style={st.row}>{ACCENTS.map((c, i) => <TouchableOpacity key={c} onPress={() => setS((s) => ({ ...s, accent: i }))} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: c, borderWidth: S.accent === i ? 4 : 0, borderColor: st.softC }} />)}</View></View>
       <View style={st.card}>
         <Text style={st.h1}>גיבוי ושחזור</Text>
         <Text style={st.sub}>שמרו את ההתקדמות בהודעה/הערה, והדביקו כאן כדי לשחזר (למשל במכשיר חדש).</Text>
         <View style={st.row}><Btn label="📤 ייצוא התקדמות" alt onPress={() => Share.share({ message: JSON.stringify({ learned: S.learned, fav: S.fav, weak: S.weak, srs: S.srs || {}, stats: S.stats, goal: S.goal }) })} /></View>
         <TextInput style={st.input} value={imp} onChangeText={setImp} placeholder="הדביקו כאן קוד גיבוי" placeholderTextColor={st.softC} multiline />
-        <Btn label="📥 שחזור" onPress={() => { try { const p = JSON.parse(imp); if (!p || typeof p.learned !== 'object' || typeof p.fav !== 'object') throw 0; setS((s) => ({ ...s, ...p })); setImp(''); Alert.alert('בוצע', 'ההתקדמות שוחזרה.'); } catch (e) { Alert.alert('שגיאה', 'קוד הגיבוי אינו תקין.'); } }} />
+        <Btn label="📥 שחזור" onPress={() => { try { const p = JSON.parse(imp); if (!p || typeof p.learned !== 'object' || !p.learned || typeof p.fav !== 'object' || !p.fav) throw 0; const ok = {}; ['learned', 'fav', 'weak', 'srs'].forEach((k) => { if (p[k] && typeof p[k] === 'object') ok[k] = p[k]; }); if (p.stats && ['played', 'correct', 'total', 'streak'].every((k) => Number.isFinite(p.stats[k]))) ok.stats = p.stats; if (Number.isFinite(p.goal)) ok.goal = p.goal; setS((s) => ({ ...s, ...ok })); setImp(''); Alert.alert('בוצע', 'ההתקדמות שוחזרה.'); } catch (e) { Alert.alert('שגיאה', 'קוד הגיבוי אינו תקין.'); } }} />
       </View>
       <Btn label="איפוס התקדמות" alt onPress={reset} />
     </ScrollView>
@@ -320,10 +335,10 @@ function More() {
 const mk = (t, f) => ({
   ...StyleSheet.create({
     root: { flex: 1, backgroundColor: t.bg },
-    head: { backgroundColor: t.head, paddingTop: (StatusBar.currentHeight || 24) + 12, paddingBottom: 20, alignItems: 'center', borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
+    head: { backgroundColor: t.head, paddingTop: (StatusBar.currentHeight || 24) + 6, paddingBottom: 12, alignItems: 'center', borderBottomLeftRadius: 22, borderBottomRightRadius: 22 },
     strip: { height: 5, width: 36, borderRadius: 3, marginBottom: 8 },
-    title: { color: '#fff', fontSize: 24 * f, fontWeight: '700' },
-    headSub: { color: t.gold, marginTop: 2, fontSize: 14 * f },
+    title: { color: '#fff', fontSize: 20 * Math.min(f, 1.1), fontWeight: '700' },
+    headSub: { color: t.gold, marginTop: 1, fontSize: 12.5 * Math.min(f, 1.1) },
     pad: { padding: 18 },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 18 },
     h1: { fontSize: 20 * f, fontWeight: '700', color: t.ink, textAlign: 'center', marginVertical: 10 },
@@ -334,13 +349,19 @@ const mk = (t, f) => ({
     grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
     cat: { width: '48%', backgroundColor: t.card, borderRadius: 22, padding: 16, marginBottom: 12, alignItems: 'center', elevation: 2 },
     emoji: { fontSize: 28 }, catName: { fontSize: 15 * f, fontWeight: '600', color: t.ink, marginTop: 4, textAlign: 'center' },
-    cardBox: { width: 320, maxWidth: '92%', height: 280, marginVertical: 14 },
+    cardBox: { width: 320, maxWidth: '100%', height: 280, marginVertical: 10 },
+    cardsPage: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 14, paddingBottom: 18 },
+    prog: { width: 320, maxWidth: '100%' },
+    tools: { flexDirection: 'row', gap: 6, width: 320, maxWidth: '100%', marginTop: 2 },
+    tool: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 7, borderRadius: 14, backgroundColor: t.card, borderWidth: 1, borderColor: t.soft + '55' },
+    toolOn: { backgroundColor: t.gold, borderColor: t.gold }, toolI: { fontSize: 18 }, toolT: { fontSize: 10, color: t.soft, marginTop: 2, maxWidth: '100%' },
+    rowFull: { flexDirection: 'row', gap: 10, width: 320, maxWidth: '100%' },
     pills: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginBottom: 10 },
     pill: { flex: 1, backgroundColor: t.bg, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 6, alignItems: 'center' },
     pillN: { fontSize: 17 * f, fontWeight: '700', color: t.ink }, pillL: { fontSize: 11 * f, color: t.soft, marginTop: 2, textAlign: 'center' },
     face: { position: 'absolute', width: '100%', height: '100%', backgroundColor: t.card, borderRadius: 30, alignItems: 'center', justifyContent: 'center', backfaceVisibility: 'hidden', elevation: 4, padding: 12 },
     back: { backgroundColor: t.back },
-    big: { fontSize: 38 * f, fontWeight: '700', color: t.ink, textAlign: 'center', writingDirection: 'rtl' },
+    big: { fontSize: 36 * f, fontWeight: '700', color: t.ink, textAlign: 'center', writingDirection: 'rtl' },
     tag: { position: 'absolute', top: 14, color: t.soft, fontSize: 12 * f, backgroundColor: t.bg, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10, overflow: 'hidden' },
     tr: { fontSize: 18 * f, color: t.soft, marginTop: 6, textAlign: 'center' },
     row: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginVertical: 6 },
@@ -356,9 +377,9 @@ const mk = (t, f) => ({
     itemY: { fontSize: 22 * f, fontWeight: '700', color: t.ink }, itemH: { fontSize: 16 * f, color: t.ink, marginTop: 2 },
     ico: { fontSize: 22, marginHorizontal: 8, marginVertical: 3 },
     stat: { fontSize: 16 * f, color: t.ink, textAlign: 'right', marginVertical: 3 },
-    tabs: { flexDirection: 'row', backgroundColor: t.card, paddingVertical: 8, marginHorizontal: 10, marginBottom: 8, borderRadius: 24, elevation: 8 },
-    tab: { flex: 1, alignItems: 'center', paddingVertical: 4 }, tabPill: { backgroundColor: t.bg, borderRadius: 18, marginHorizontal: 2 }, tabI: { fontSize: 20 },
-    tabT: { fontSize: 12 * f, color: t.soft }, tabOn: { color: t.ink, fontWeight: '700' },
+    tabs: { flexDirection: 'row', backgroundColor: t.card, paddingVertical: 6, marginHorizontal: 8, marginBottom: 8, marginTop: 4, borderRadius: 22, elevation: 8 },
+    tab: { flex: 1, alignItems: 'center', paddingVertical: 4, paddingHorizontal: 1 }, tabPill: { backgroundColor: t.bg, borderRadius: 16, marginHorizontal: 1 }, tabI: { fontSize: 19 },
+    tabT: { fontSize: 11, color: t.soft, maxWidth: '100%' }, tabOn: { color: t.ink, fontWeight: '700' },
   }),
   gold: t.gold, okC: t.ok, badC: t.bad, softC: t.soft,
 });
@@ -370,6 +391,15 @@ export default function App() {
   const [ready, setReady] = useState(false);
   const [tab, setTab] = useState('home');
   const [cat, setCat] = useState('all');
+  const [kb, setKb] = useState(false);
+  useEffect(() => {
+    const a = Keyboard.addListener('keyboardDidShow', () => setKb(true)), b = Keyboard.addListener('keyboardDidHide', () => setKb(false));
+    return () => { a.remove(); b.remove(); };
+  }, []);
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => { if (tab !== 'home') { setTab('home'); return true; } return false; });
+    return () => sub.remove();
+  }, [tab]);
   useEffect(() => { FS.readAsStringAsync(FILE).then((x) => setS((s) => ({ ...s, ...JSON.parse(x) }))).catch(() => {}).finally(() => setReady(true)); }, []);
   useEffect(() => {
     if (!ready) return;
@@ -401,14 +431,14 @@ export default function App() {
           {tab === 'search' && <Search />}
           {tab === 'more' && <More />}
         </View>
-        <View style={st.tabs}>
+        {!kb && <View style={st.tabs}>
           {TABS.map(([k, i, n]) => (
             <TouchableOpacity key={k} style={[st.tab, tab === k && st.tabPill]} onPress={() => setTab(k)}>
               <Text style={[st.tabI, tab !== k && { opacity: 0.5 }]}>{i}</Text>
-              <Text style={[st.tabT, tab === k && st.tabOn]}>{n}</Text>
+              <Text style={[st.tabT, tab === k && st.tabOn]} numberOfLines={1} adjustsFontSizeToFit>{n}</Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </View>}
       </SafeAreaView>
     </Ctx.Provider>
   );

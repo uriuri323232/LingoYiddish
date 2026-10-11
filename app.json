@@ -2,14 +2,23 @@
   "expo": {
     "name": "יידיש אָפליין",
     "slug": "yiddish-offline",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
       "backgroundColor": "#1B2A41"
     },
     "android": {
-      "package": "com.example.yiddishoffline"
-    }
+      "package": "com.example.yiddishoffline",
+      "versionCode": 2,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "monochromeImage": "./assets/adaptive-mono.png",
+        "backgroundColor": "#1B2A41"
+      }
+    },
+    "icon": "./assets/icon.png"
   }
 }
