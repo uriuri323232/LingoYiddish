@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useMemo, useCallback, createContext, useContext } from 'react';
-import { View, Text, TouchableOpacity, Animated, TextInput, FlatList, StyleSheet, SafeAreaView, ScrollView, StatusBar, Alert, Share, BackHandler, Keyboard, Modal, Vibration, useColorScheme, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, Animated, TextInput, FlatList, StyleSheet, SafeAreaView, ScrollView, StatusBar, Alert, Share, BackHandler, Keyboard, Modal, Vibration, useColorScheme, useWindowDimensions, AppState } from 'react-native';
 import * as FS from 'expo-file-system';
 import RAW from './vocabulary.json';
 
@@ -7,6 +7,7 @@ import RAW from './vocabulary.json';
 // המזהה נשאר תואם לגרסאות קודמות (o = התרגום הישן, אם תוקן) כדי לא לאבד התקדמות
 const DATA = RAW.map((w) => ({ ...w, id: w.y + '|' + (w.o || w.h) }));
 const FILE = FS.documentDirectory + 'progress.json';
+const BYCAT = DATA.reduce((m, w) => { (m[w.c] || (m[w.c] = [])).push(w); return m; }, {});
 const SPECIAL = [
   { k: 'all', n: 'הכול', i: '📚' }, { k: 'todo', n: 'עוד לא נלמדו', i: '📖' }, { k: 'fav', n: 'מועדפים', i: '⭐' },
   { k: 'weak', n: 'לחזרה (טעויות)', i: '🔁' }, { k: 'due', n: 'חזרה חכמה', i: '🧠' },
@@ -44,7 +45,7 @@ const judge = (inp, w) => { const a = lat(inp); if (!a) return null; const alts 
 const lvlInfo = (xp = 0) => { const lvl = Math.floor(Math.sqrt(xp / 25)) + 1; const lo = 25 * (lvl - 1) ** 2, hi = 25 * lvl ** 2; return { lvl, pct: (xp - lo) / (hi - lo), to: hi - xp, title: LEVELS[Math.min(Math.floor((lvl - 1) / 2), LEVELS.length - 1)] }; };
 const poolOf = (cat, S) =>
   cat === 'all' ? DATA : cat === 'fav' ? DATA.filter((w) => S.fav[w.id]) : cat === 'weak' ? DATA.filter((w) => S.weak[w.id]) : cat === 'todo' ? DATA.filter((w) => !S.learned[w.id])
-    : cat === 'due' ? [...DATA.filter((w) => isDue(S, w.id)), ...DATA.filter((w) => isNew(S, w.id)).slice(0, 5)] : DATA.filter((w) => w.c === cat);
+    : cat === 'due' ? [...DATA.filter((w) => isDue(S, w.id)), ...DATA.filter((w) => isNew(S, w.id)).slice(0, 5)] : (BYCAT[cat] || []);
 const mkOpts = (w, hard) => {
   const ok = (x) => x.id !== w.id && x.h !== w.h && x.y !== w.y;
   const src = hard ? [...shuffle(DATA.filter((x) => x.c === w.c && ok(x))), ...shuffle(DATA.filter(ok))] : shuffle(DATA.filter(ok));
@@ -723,7 +724,10 @@ export default function App() {
     const d = new Date().toDateString(), y = new Date(Date.now() - 864e5).toDateString();
     setS((s) => (s.last === d ? s : { ...s, last: d, streakDays: s.last === y ? (s.streakDays || 0) + 1 : 1 }));
   }, [ready]);
-  useEffect(() => { if (ready) FS.writeAsStringAsync(FILE, JSON.stringify(S)).catch(() => {}); }, [S, ready]);
+  const SR = useRef(S); SR.current = S;
+  const flush = useCallback(() => { FS.writeAsStringAsync(FILE, JSON.stringify(SR.current)).catch(() => {}); }, []);
+  useEffect(() => { if (!ready) return; const id = setTimeout(flush, 800); return () => clearTimeout(id); }, [S, ready]);
+  useEffect(() => { const sub = AppState.addEventListener('change', (x) => { if (x !== 'active' && ready) flush(); }); return () => sub.remove(); }, [ready]);
   const dark = (S.theme || 'auto') === 'auto' ? scheme === 'dark' : S.theme === 'dark';
   const t = { ...THEMES[dark ? 'dark' : 'light'], gold: ACCENTS[S.accent || 0] };
   const st = useMemo(() => mk(t, S.scale), [dark, S.scale, S.accent]);
