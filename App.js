@@ -26,9 +26,11 @@ const GEN = { d: 'דער', f: 'די', n: 'דאָס' };
 const COL = ['#5B8DEF', '#E07A5F', '#3FA67A', '#9B6BCE', '#E0A100', '#2BA3B8'];
 const ACCENTS = ['#F2A900', '#2BA3B8', '#9B6BCE', '#E07A5F'];
 const THEMES = {
-  light: { bg: '#F1F4F9', card: '#FFFFFF', ink: '#1B2A41', soft: '#64748B', ok: '#2E7D5B', bad: '#B23A48', head: '#1B2A41', back: '#1B2A41', line: '#E2E8F0' },
-  dark: { bg: '#0F1624', card: '#1A2438', ink: '#E8EDF5', soft: '#93A1B8', ok: '#3FA67A', bad: '#D1566A', head: '#0A101C', back: '#26354F', line: '#2A3752' },
+  light: { bg: '#F4F6FB', card: '#FFFFFF', ink: '#1B2A41', soft: '#5B6B82', ok: '#2E7D5B', bad: '#B23A48', head: '#1B2A41', back: '#1B2A41', line: '#E3E8F2' },
+  dark: { bg: '#0B1220', card: '#16213A', ink: '#EEF2F9', soft: '#9AA9C0', ok: '#3FA67A', bad: '#D1566A', head: '#070C16', back: '#22314E', line: '#26354F' },
 };
+TouchableOpacity.defaultProps = { ...(TouchableOpacity.defaultProps || {}), activeOpacity: 0.72 };
+const greet = () => { const h = new Date().getHours(); return h < 5 ? 'לילה טוב' : h < 12 ? 'בוקר טוב' : h < 17 ? 'צהריים טובים' : h < 21 ? 'ערב טוב' : 'לילה טוב'; };
 const DAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 const LEVELS = ['מתחיל', 'לומד', 'מתמיד', 'בקי', 'חריף', 'מומחה', 'בעל מדרגה'];
 const INT = [0, 1, 3, 7, 14, 30];
@@ -139,6 +141,7 @@ function Home({ pick, go }) {
   const mx = Math.max(10, ...week.map((x) => x.v));
   return (
     <ScrollView contentContainerStyle={st.pad}>
+      <Text style={st.hello}>{greet()} 👋</Text>
       <TouchableOpacity activeOpacity={0.9} onPress={() => openWord(wod)} style={[st.card, { borderTopWidth: 4, borderTopColor: st.gold }]}>
         <Text style={st.sub}>✨ המילה של היום</Text>
         <Text style={st.big}>{wod.y}</Text>
@@ -626,20 +629,20 @@ function More() {
 const mk = (t, f) => ({
   ...StyleSheet.create({
     root: { flex: 1, backgroundColor: t.bg },
-    head: { backgroundColor: t.head, paddingTop: (StatusBar.currentHeight || 24) + 6, paddingBottom: 12, alignItems: 'center', borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
-    strip: { height: 5, width: 36, borderRadius: 3, marginBottom: 8 },
-    title: { color: '#fff', fontSize: 20 * Math.min(f, 1.1), fontWeight: '800' },
+    head: { backgroundColor: t.head, paddingTop: (StatusBar.currentHeight || 24) + 8, paddingBottom: 16, alignItems: 'center', borderBottomLeftRadius: 30, borderBottomRightRadius: 30, elevation: 6, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
+    strip: { height: 5, width: 44, borderRadius: 3, marginBottom: 8 },
+    title: { color: '#fff', fontSize: 23 * Math.min(f, 1.1), fontWeight: '800', letterSpacing: 0.3 },
     credit: { color: t.gold, marginTop: 2, fontSize: 12.5 * Math.min(f, 1.1), fontWeight: '700' },
     headSub: { color: '#cbd5e1', marginTop: 1, fontSize: 12.5 * Math.min(f, 1.1) },
     pad: { padding: 18, paddingBottom: 30 },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 18 },
     h1: { fontSize: 20 * f, fontWeight: '800', color: t.ink, textAlign: 'center', marginVertical: 10 },
     sub: { color: t.soft, fontSize: 13 * f, textAlign: 'center', marginVertical: 5 },
-    card: { backgroundColor: t.card, borderRadius: 22, padding: 16, marginBottom: 12, elevation: 2, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 } },
-    bar: { alignSelf: 'stretch', height: 10, borderRadius: 5, backgroundColor: t.bg, overflow: 'hidden', marginTop: 4 },
-    fill: { height: 10, backgroundColor: t.ok, borderRadius: 5 },
+    card: { backgroundColor: t.card, borderRadius: 24, padding: 18, marginBottom: 14, borderWidth: 1, borderColor: t.line, elevation: 3, shadowColor: '#1B2A41', shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
+    bar: { alignSelf: 'stretch', height: 8, borderRadius: 4, backgroundColor: t.line, overflow: 'hidden', marginTop: 4 },
+    fill: { height: 8, backgroundColor: t.ok, borderRadius: 4 },
     grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-    cat: { width: '48%', backgroundColor: t.card, borderRadius: 22, padding: 16, marginBottom: 12, alignItems: 'center', elevation: 2, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 } },
+    cat: { width: '48%', backgroundColor: t.card, borderRadius: 22, padding: 16, marginBottom: 12, alignItems: 'center', borderWidth: 1, borderColor: t.line, elevation: 3, shadowColor: '#1B2A41', shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: 3 } },
     emoji: { fontSize: 28 }, catName: { fontSize: 15 * f, fontWeight: '700', color: t.ink, marginTop: 4, textAlign: 'center' },
     cardBox: { width: 330, maxWidth: '100%', marginVertical: 10 },
     cardsPage: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 14, paddingBottom: 22 },
@@ -649,7 +652,7 @@ const mk = (t, f) => ({
     toolOn: { backgroundColor: t.gold, borderColor: t.gold }, toolI: { fontSize: 17 }, toolT: { fontSize: 9.5, color: t.soft, marginTop: 2, maxWidth: '100%' },
     rowFull: { flexDirection: 'row', gap: 10, width: 330, maxWidth: '100%' },
     pills: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginBottom: 10 },
-    pill: { flex: 1, backgroundColor: t.bg, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 6, alignItems: 'center' },
+    pill: { flex: 1, backgroundColor: t.gold + '22', borderRadius: 16, paddingVertical: 10, paddingHorizontal: 6, alignItems: 'center' },
     pillN: { fontSize: 17 * f, fontWeight: '800', color: t.ink }, pillL: { fontSize: 11 * f, color: t.soft, marginTop: 2, textAlign: 'center' },
     lvlRow: { alignItems: 'center', marginBottom: 4 }, lvlN: { fontSize: 17 * f, fontWeight: '800', color: t.ink },
     week: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', height: 64, marginTop: 12 },
@@ -669,26 +672,27 @@ const mk = (t, f) => ({
     exBox: { alignSelf: 'stretch', backgroundColor: t.bg, borderRadius: 16, padding: 12, marginVertical: 10, alignItems: 'center' },
     exY: { fontSize: 18 * f, fontWeight: '700', color: t.ink, textAlign: 'center' }, exT: { fontSize: 14 * f, color: t.soft, marginTop: 2, textAlign: 'center' }, exH: { fontSize: 15 * f, color: t.ink, marginTop: 2, textAlign: 'center' },
     exBack: { marginTop: 8, alignItems: 'center', paddingHorizontal: 6 }, exYb: { fontSize: 15 * f, color: t.gold, fontWeight: '700', textAlign: 'center' }, exHb: { fontSize: 13 * f, color: '#cbd5e1', textAlign: 'center' },
-    overlay: { flex: 1, backgroundColor: '#000A', justifyContent: 'center', padding: 20 },
-    sheet: { backgroundColor: t.card, borderRadius: 26, padding: 18, maxHeight: '88%' },
+    overlay: { flex: 1, backgroundColor: '#000C', justifyContent: 'center', padding: 20 },
+    sheet: { backgroundColor: t.card, borderRadius: 28, padding: 18, maxHeight: '88%' },
     row: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginVertical: 6 },
     chip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, backgroundColor: t.card, borderWidth: 1, borderColor: t.line },
     chipOn: { backgroundColor: t.gold, borderColor: t.gold }, chipT: { color: t.ink, fontSize: 14 * f }, chipTOn: { color: '#1B2A41', fontWeight: '800' },
-    btn: { backgroundColor: t.gold, paddingVertical: 12, paddingHorizontal: 26, borderRadius: 16, marginTop: 14, alignSelf: 'center' },
-    btnAlt: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: t.gold },
+    btn: { backgroundColor: t.gold, paddingVertical: 13, paddingHorizontal: 26, borderRadius: 18, marginTop: 14, alignSelf: 'center', elevation: 3, shadowColor: t.gold, shadowOpacity: 0.35, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
+    btnAlt: { backgroundColor: t.card, borderWidth: 1.5, borderColor: t.gold, elevation: 0, shadowOpacity: 0 },
     btnT: { fontSize: 16 * f, fontWeight: '800', color: '#1B2A41', textAlign: 'center' }, btnAltT: { color: t.ink },
-    opt: { backgroundColor: t.card, borderRadius: 16, padding: 16, marginTop: 10, borderWidth: 1, borderColor: t.line },
+    opt: { backgroundColor: t.card, borderRadius: 18, padding: 16, marginTop: 10, borderWidth: 1.5, borderColor: t.line, elevation: 1 },
     optT: { fontSize: 18 * f, color: t.ink, textAlign: 'center' },
-    input: { backgroundColor: t.card, color: t.ink, margin: 16, padding: 14, borderRadius: 16, fontSize: 16 * f, textAlign: 'right', borderWidth: 1, borderColor: t.line },
-    item: { backgroundColor: t.card, borderRadius: 16, padding: 14, marginBottom: 10, flexDirection: 'row', alignItems: 'center' },
+    input: { backgroundColor: t.card, color: t.ink, margin: 16, padding: 15, borderRadius: 20, fontSize: 16 * f, textAlign: 'right', borderWidth: 1, borderColor: t.line },
+    item: { backgroundColor: t.card, borderRadius: 18, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: t.line, flexDirection: 'row', alignItems: 'center' },
     itemY: { fontSize: 22 * f, fontWeight: '800', color: t.ink, textAlign: 'center' }, itemH: { fontSize: 16 * f, color: t.ink, marginTop: 2 },
     ico: { fontSize: 22, marginHorizontal: 8, marginVertical: 3 },
     stat: { fontSize: 16 * f, color: t.ink, textAlign: 'right', marginVertical: 3 },
     achRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 }, achI: { fontSize: 26, marginHorizontal: 10 },
     achN: { fontSize: 15 * f, fontWeight: '700', color: t.ink, textAlign: 'right' }, achD: { fontSize: 12.5 * f, color: t.soft, textAlign: 'right' },
-    tabs: { flexDirection: 'row', backgroundColor: t.card, paddingVertical: 6, marginHorizontal: 8, marginBottom: 8, marginTop: 4, borderRadius: 24, elevation: 8 },
-    tab: { flex: 1, alignItems: 'center', paddingVertical: 4, paddingHorizontal: 1 }, tabPill: { backgroundColor: t.bg, borderRadius: 18, marginHorizontal: 1 }, tabI: { fontSize: 19 },
-    tabT: { fontSize: 11, color: t.soft, maxWidth: '100%' }, tabOn: { color: t.ink, fontWeight: '800' },
+    tabs: { flexDirection: 'row', backgroundColor: t.card, paddingVertical: 6, paddingHorizontal: 4, marginHorizontal: 10, marginBottom: 10, marginTop: 4, borderRadius: 28, borderWidth: 1, borderColor: t.line, elevation: 10, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: -2 } },
+    tab: { flex: 1, alignItems: 'center', paddingVertical: 4, paddingHorizontal: 1 }, tabPill: { backgroundColor: t.gold + '33', borderRadius: 20, marginHorizontal: 1 }, tabI: { fontSize: 20 },
+    hello: { fontSize: 22 * f, fontWeight: '800', color: t.ink, textAlign: 'right', marginBottom: 12, marginTop: 2 },
+    tabT: { fontSize: 11.5, color: t.soft, maxWidth: '100%' }, tabOn: { color: t.ink, fontWeight: '800' },
   }),
   gold: t.gold, okC: t.ok, badC: t.bad, softC: t.soft,
 });
