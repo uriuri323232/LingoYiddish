@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useMemo, useCallback, createContext, useContext } from 'react';
+import React, { useRef, useState, useEffect, useMemo, useCallback, useDeferredValue, createContext, useContext } from 'react';
 import { View, Text, TouchableOpacity, Animated, TextInput, FlatList, StyleSheet, SafeAreaView, ScrollView, StatusBar, Alert, Share, BackHandler, Keyboard, Modal, Vibration, useColorScheme, useWindowDimensions, AppState } from 'react-native';
 import * as FS from 'expo-file-system';
 import RAW from './vocabulary.json';
@@ -131,10 +131,11 @@ function WordModal({ w, onClose }) {
 function Home({ pick, go }) {
   const { st, S, openWord } = useApp();
   const wod = DATA[dayNo() % DATA.length];
-  const done = DATA.filter((w) => S.learned[w.id]).length;
+  const done = useMemo(() => DATA.filter((w) => S.learned[w.id]).length, [S.learned]);
   const td = S.day === new Date().toDateString() ? S.today : 0;
   const goal = S.goal || 10;
-  const dueN = DATA.filter((w) => isDue(S, w.id)).length;
+  const dueN = useMemo(() => DATA.filter((w) => isDue(S, w.id)).length, [S.srs]);
+  const catStats = useMemo(() => TOPICS.map((c) => { const p = BYCAT[c.k] || []; return [p.length, p.filter((w) => S.learned[w.id]).length]; }), [S.learned]);
   const weakN = Object.keys(S.weak).length;
   const L = lvlInfo(S.xp);
   const week = [...Array(7)].map((_, i) => { const d = dayNo() - (6 - i); return { v: (S.hist || {})[d] || 0, l: DAYS[new Date(d * 864e5 + 432e5).getUTCDay()] }; });
@@ -185,17 +186,18 @@ function Home({ pick, go }) {
       <Text style={[st.h1, { marginTop: 10 }]}>קטגוריות</Text>
       <View style={st.grid}>
         {TOPICS.map((c, ix) => {
-          const p = poolOf(c.k, S), l = p.filter((w) => S.learned[w.id]).length;
+          const [n, l] = catStats[ix];
           return (
             <TouchableOpacity key={c.k} style={st.cat} onPress={() => pick(c.k)}>
               <View style={[st.strip, { backgroundColor: COL[ix % 6] }]} /><Text style={st.emoji}>{c.i}</Text>
               <Text style={st.catName}>{c.n}</Text>
-              <Text style={st.sub}>{l}/{p.length}</Text>
-              <Bar pct={p.length ? l / p.length : 0} color={COL[ix % 6]} />
+              <Text style={st.sub}>{l}/{n}</Text>
+              <Bar pct={n ? l / n : 0} color={COL[ix % 6]} />
             </TouchableOpacity>
           );
         })}
       </View>
+      <Text style={{ textAlign: 'center', fontSize: 10, color: st.softC, opacity: 0.7, marginTop: 18, marginBottom: 6 }}>קרדיט: יהודי לא פשוט @ מתמחים טופ</Text>
     </ScrollView>
   );
 }
@@ -508,7 +510,7 @@ function Search() {
   const [q, setQ] = useState('');
   const [fc, setFc] = useState('all');
   const [fs, setFs] = useState('all');
-  const k = norm(q);
+  const k = norm(useDeferredValue(q));
   const res = useMemo(() => {
     let b = fc === 'all' ? DATA : DATA.filter((w) => w.c === fc);
     if (fs === 'learned') b = b.filter((w) => S.learned[w.id]); else if (fs === 'new') b = b.filter((w) => !S.learned[w.id]); else if (fs === 'fav') b = b.filter((w) => S.fav[w.id]);
@@ -525,7 +527,7 @@ function Search() {
         {TOPICS.map((c) => <Chip key={c.k} on={fc === c.k} label={c.i + ' ' + c.n} onPress={() => setFc(c.k)} />)}
       </ScrollView></View>
       <Text style={st.sub}>{res.length} תוצאות</Text>
-      <FlatList data={res} keyExtractor={(w) => w.id} contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled" initialNumToRender={20}
+      <FlatList data={res} keyExtractor={(w) => w.id} contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled" initialNumToRender={14} maxToRenderPerBatch={16} windowSize={7} removeClippedSubviews
         ListEmptyComponent={<Text style={st.sub}>לא נמצאו תוצאות. נסו מילה אחרת.</Text>}
         renderItem={({ item }) => (
           <TouchableOpacity style={st.item} onPress={() => openWord(item)}>
